@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@cloudscape-design/components": "^3.0.1341",
+    "@cloudscape-design/global-styles": "^1.0.65",
+    "@supabase/supabase-js": "^2.112.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

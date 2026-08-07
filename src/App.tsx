@@ -1,157 +1,83 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import Alert from '@cloudscape-design/components/alert';
 import Box from '@cloudscape-design/components/box';
-import Button from '@cloudscape-design/components/button';
 import Container from '@cloudscape-design/components/container';
-import FormField from '@cloudscape-design/components/form-field';
 import Header from '@cloudscape-design/components/header';
-import Input from '@cloudscape-design/components/input';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import Spinner from '@cloudscape-design/components/spinner';
 import { TextContent } from '@cloudscape-design/components';
 
 import '@cloudscape-design/global-styles/index.css';
-import { isSupabaseConfigured, supabase } from './lib/supabase';
+import { AuthProvider, useAuthContext } from './context/AuthContext';
+import DashboardMain from './features/dashboard/views/DashboardMain';
+import AuthPanel from './features/auth/AuthPanel';
+
+function AppContent() {
+  const { session, loading, signOut } = useAuthContext();
+  const heading = useMemo(() => (session ? 'Panel de control' : 'Autenticación y acceso'), [session]);
+
+  if (loading) {
+    return (
+      <div className="app-shell loading-state">
+        <Spinner size="large" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="app-shell">
+        <Header variant="h1">Sprint 1 · Arandu</Header>
+
+        <Container>
+          <div className="hero-panel">
+            <SpaceBetween size="l">
+              <TextContent>
+                <h2>{heading}</h2>
+                <p>
+                  Este sprint incorpora login, registro, administración de roles y un modelo de RLS básico
+                  con arquitectura modular para escalar hacia matrículas, calificaciones y módulos académicos.
+                </p>
+              </TextContent>
+
+              <Box variant="div">
+                <SpaceBetween size="s">
+                  <strong>Arquitectura base</strong>
+                  <span>• Frontend React + Vite + Cloudscape para una UI consistente y mantenible</span>
+                  <span>• Auth y sesión centralizados en una capa de dominio reutilizable</span>
+                  <span>• Roles y permisos desacoplados para facilitar futuras políticas de acceso</span>
+                </SpaceBetween>
+              </Box>
+            </SpaceBetween>
+          </div>
+
+          <div className="form-panel">
+            <AuthPanel />
+          </div>
+        </Container>
+
+        <Container header={<Header variant="h2">Qué incluye este sprint</Header>}>
+          <SpaceBetween size="m">
+            <Alert type="info">Inicia sesión para ver el panel de administración y la capa de permisos.</Alert>
+            <Box variant="div">
+              <div className="module-pill">Login y registro con feedback de estado</div>
+              <div className="module-pill">Gestión de roles por usuario</div>
+              <div className="module-pill">Políticas RLS documentadas para expansión</div>
+            </Box>
+          </SpaceBetween>
+        </Container>
+      </div>
+    );
+  }
+
+  return <DashboardMain session={session} loading={loading} onSignOut={signOut} />;
+}
 
 export default function App() {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [session, setSession] = useState<any>(null);
-
-  useEffect(() => {
-    if (!supabase) {
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-    });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => authListener.subscription.unsubscribe();
-  }, []);
-
-  const heading = useMemo(() => (mode === 'login' ? 'Welcome back' : 'Create an account'), [mode]);
-
-  const handleSubmit = async () => {
-    if (!supabase) {
-      setError('Supabase is not configured yet. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to your environment.');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      if (mode === 'login') {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) {
-          throw signInError;
-        }
-        setMessage('Signed in successfully.');
-      } else {
-        const { error: signUpError } = await supabase.auth.signUp({ email, password });
-        if (signUpError) {
-          throw signUpError;
-        }
-        setMessage('Account created. Check your inbox for the confirmation email if required.');
-      }
-
-      setPassword('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignOut = async () => {
-    if (!supabase) {
-      return;
-    }
-
-    setLoading(true);
-    await supabase.auth.signOut();
-    setSession(null);
-    setLoading(false);
-  };
-
   return (
-    <SpaceBetween size="l">
-      <Header variant="h1">Supabase auth starter</Header>
-
-      <Container>
-        <SpaceBetween size="m">
-          <TextContent>
-            <h2>{heading}</h2>
-            <p>Use Supabase Auth with polished Cloudscape forms and feedback states.</p>
-          </TextContent>
-
-          {error ? <Alert type="error">{error}</Alert> : null}
-          {message ? <Alert type="success">{message}</Alert> : null}
-
-          {!isSupabaseConfigured ? (
-            <Alert type="info">
-              Add your Supabase URL and anon key to the Vite environment before testing the flow.
-            </Alert>
-          ) : null}
-
-          {!session ? (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void handleSubmit();
-              }}
-            >
-              <SpaceBetween size="m">
-                <FormField label="Email">
-                  <Input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.detail.value)}
-                    placeholder="you@example.com"
-                  />
-                </FormField>
-
-                <FormField label="Password">
-                  <Input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.detail.value)}
-                    placeholder="Enter your password"
-                  />
-                </FormField>
-
-                <SpaceBetween size="s" direction="horizontal">
-                  <Button variant="primary" loading={loading} disabled={loading}>
-                    {mode === 'login' ? 'Log in' : 'Sign up'}
-                  </Button>
-                  <Button variant="link" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}>
-                    {mode === 'login' ? 'Create an account' : 'Back to login'}
-                  </Button>
-                </SpaceBetween>
-              </SpaceBetween>
-            </form>
-          ) : (
-            <SpaceBetween size="m">
-              <Alert type="success">You are signed in.</Alert>
-              <Box>{session.user?.email ?? 'Active session'}</Box>
-              <Button variant="primary" loading={loading} onClick={() => void handleSignOut()}>
-                {loading ? <Spinner size="normal" /> : 'Sign out'}
-              </Button>
-            </SpaceBetween>
-          )}
-        </SpaceBetween>
-      </Container>
-    </SpaceBetween>
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

@@ -146,6 +146,8 @@ export type GeneratedReportRow = {
     student_id: string | null;
     report_type: string;
     file_url: string;
+    academic_period_id: string | null;
+    grade_level: string | null;
     generated_by: string;
     generated_at: string;
 };

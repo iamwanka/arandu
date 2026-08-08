@@ -37,6 +37,16 @@ export function isoDate(label = 'La fecha'): Validator<string | null | undefined
     };
 }
 
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Valida formato "HH:MM" en 24 horas. */
+export function timeString(label = 'La hora'): Validator<string | null | undefined> {
+    return (value) => {
+        if (!value) return `${label} es obligatoria.`;
+        return TIME_PATTERN.test(value) ? null : `${label} debe tener el formato HH:MM.`;
+    };
+}
+
 /** Encadena validadores y devuelve el primer error encontrado. */
 export function compose<T>(...validators: Array<Validator<T>>): Validator<T> {
     return (value) => {

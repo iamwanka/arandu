@@ -127,6 +127,69 @@ export interface ParentStudentLink {
     createdAt: string;
 }
 
+export interface Grade {
+    id: string;
+    studentId: string;
+    subjectId: string;
+    academicPeriodId: string;
+    /** Nota numérica, 0–10 (coincide con `numeric(4,2)` en la base). */
+    gradeValue: number;
+    gradeLetter: string | null;
+    recordedBy: string;
+    createdAt: string;
+}
+
+export interface Attendance {
+    id: string;
+    studentId: string;
+    attendanceDate: string;
+    status: AttendanceStatus;
+    recordedBy: string;
+    createdAt: string;
+}
+
+/** 1 = lunes … 7 = domingo (ISO 8601), coincide con el `check` de la base. */
+export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export interface Schedule {
+    id: string;
+    gradeLevel: string;
+    dayOfWeek: DayOfWeek;
+    /** Formato "HH:MM". */
+    startTime: string;
+    endTime: string;
+    subjectId: string;
+    teacherId: string | null;
+    classroom: string | null;
+    createdAt: string;
+}
+
+export interface DisciplinaryRecord {
+    id: string;
+    studentId: string;
+    recordDate: string;
+    /** Texto libre en la base; la vista ofrece un vocabulario controlado (leve/moderada/grave). */
+    severity: string;
+    description: string;
+    responsibleId: string;
+    notifiedParent: boolean;
+    createdAt: string;
+}
+
+/** `null` en `studentId` identifica un reporte institucional (asistencia o rendimiento de un grado). */
+export interface GeneratedReport {
+    id: string;
+    studentId: string | null;
+    /** Texto libre en la base; la vista ofrece un vocabulario controlado (boletin/asistencia/rendimiento). */
+    reportType: string;
+    /** Ruta del objeto en el bucket privado de Storage `reports`, no una URL pública. */
+    fileUrl: string;
+    academicPeriodId: string | null;
+    gradeLevel: string | null;
+    generatedBy: string;
+    generatedAt: string;
+}
+
 /* ------------------------------------------------------------------ */
 /* Entradas de formulario                                              */
 /* ------------------------------------------------------------------ */
@@ -151,6 +214,25 @@ export type EnrollmentInput = Omit<Enrollment, 'id' | 'createdAt'>;
 export type EnrollmentPatch = Partial<EnrollmentInput>;
 
 export type ProfileInput = Omit<Profile, 'createdAt'>;
+
+export type GradeInput = Omit<Grade, 'id' | 'createdAt'>;
+export type GradePatch = Partial<GradeInput>;
+
+export type AttendanceInput = Omit<Attendance, 'id' | 'createdAt'>;
+export type AttendancePatch = Partial<AttendanceInput>;
+
+export type ScheduleInput = Omit<Schedule, 'id' | 'createdAt'>;
+export type SchedulePatch = Partial<ScheduleInput>;
+
+export type DisciplinaryRecordInput = Omit<DisciplinaryRecord, 'id' | 'createdAt'>;
+export type DisciplinaryRecordPatch = Partial<DisciplinaryRecordInput>;
+
+/**
+ * A diferencia de los demás `*Input`, incluye `id`: hace falta generarlo en
+ * el cliente antes de crear la fila, para subir el PDF a Storage bajo esa
+ * misma ruta (`{studentId|institutional}/{id}.pdf`).
+ */
+export type GeneratedReportInput = Omit<GeneratedReport, 'generatedAt'>;
 
 /* ------------------------------------------------------------------ */
 /* Consultas                                                           */

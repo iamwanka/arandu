@@ -13,3 +13,5 @@ export { default as FormPanel } from './FormPanel';
 export { default as LoadingState } from './LoadingState';
 export { default as ProfileSelect } from './ProfileSelect';
 export { default as SectionCard } from './SectionCard';
+export { default as StudentSelect } from './StudentSelect';
+export { default as TeacherSelect } from './TeacherSelect';

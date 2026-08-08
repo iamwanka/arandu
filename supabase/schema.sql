@@ -119,11 +119,17 @@ create table if not exists public.disciplinary_records (
   created_at timestamptz not null default now()
 );
 
+-- `student_id` nulo identifica un reporte institucional (asistencia o
+-- rendimiento de un grado completo, no de un estudiante). `file_url` guarda
+-- la ruta del objeto en el bucket privado de Storage `reports`
+-- (`{studentId|institutional}/{id}.pdf`), no una URL pública.
 create table if not exists public.generated_reports (
   id uuid primary key default gen_random_uuid(),
   student_id uuid references public.students(id) on delete cascade,
   report_type text not null,
   file_url text not null,
+  academic_period_id uuid references public.academic_periods(id) on delete set null,
+  grade_level text,
   generated_by uuid not null references public.profiles(id) on delete restrict,
   generated_at timestamptz not null default now()
 );
@@ -200,6 +206,13 @@ $$;
 create policy "profiles_manage_admins" on public.profiles
 for all using (public.is_admin());
 
+-- Sin esto, un coordinador no puede ver la lista de cuentas para vincularlas
+-- a un estudiante/docente/acudiente nuevo (ProfileSelect) ni el panel de
+-- Usuarios: "profiles_select_own" solo deja ver la fila propia, y
+-- "profiles_manage_admins" es exclusivo de admin.
+create policy "profiles_select_staff" on public.profiles
+for select using (public.is_staff());
+
 create policy "students_select_allowed" on public.students
 for select using (
   profile_id = auth.uid()
@@ -275,22 +288,16 @@ for select using (
   )
   or exists (
     select 1 from public.parent_student_relationships psr
-    join public.students s on s.id = psr.student_id
     where psr.student_id = grades.student_id and psr.parent_profile_id = auth.uid() and psr.active = true
   )
-  or exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'coordinator', 'teacher')
-  )
+  or public.is_staff()
 );
 
+-- admin, coordinador y docente registran notas (matriz de permisos); antes
+-- solo dejaba admin/docente, dejando afuera a coordinador.
 create policy "grades_manage_teacher_or_admin" on public.grades
-for all using (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'teacher')
-  )
-);
+for all using (public.is_staff())
+with check (public.is_staff());
 
 create policy "attendance_select_allowed" on public.attendance
 for select using (
@@ -299,19 +306,77 @@ for select using (
   )
   or exists (
     select 1 from public.parent_student_relationships psr
-    join public.students s on s.id = psr.student_id
     where psr.student_id = attendance.student_id and psr.parent_profile_id = auth.uid() and psr.active = true
   )
-  or exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'coordinator', 'teacher')
-  )
+  or public.is_staff()
 );
 
 create policy "attendance_manage_teacher_or_admin" on public.attendance
-for all using (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'teacher')
+for all using (public.is_staff())
+with check (public.is_staff());
+
+-- Sin estas dos, la tabla queda con RLS activado y cero políticas: nadie
+-- (ni siquiera admin) puede leerla ni escribirla desde el cliente.
+create policy "disciplinary_select_allowed" on public.disciplinary_records
+for select using (
+  student_id in (
+    select id from public.students where profile_id = auth.uid()
+  )
+  or exists (
+    select 1 from public.parent_student_relationships psr
+    where psr.student_id = disciplinary_records.student_id and psr.parent_profile_id = auth.uid() and psr.active = true
+  )
+  or public.is_staff()
+);
+
+create policy "disciplinary_manage_staff" on public.disciplinary_records
+for all using (public.is_staff())
+with check (public.is_staff());
+
+-- Sin estas dos, la tabla queda con RLS activado y cero políticas: nadie
+-- (ni siquiera admin) puede leerla ni escribirla desde el cliente.
+--
+-- Solo admin/coordinador generan reportes (is_staff() incluiría al docente,
+-- que según la matriz de permisos no genera reportes institucionales).
+create policy "generated_reports_select_allowed" on public.generated_reports
+for select using (
+  public.is_admin() or public.has_role('coordinator')
+  or student_id in (
+    select id from public.students where profile_id = auth.uid()
+  )
+  or exists (
+    select 1 from public.parent_student_relationships psr
+    where psr.student_id = generated_reports.student_id and psr.parent_profile_id = auth.uid() and psr.active = true
+  )
+);
+
+create policy "generated_reports_insert_admin_or_coordinator" on public.generated_reports
+for insert with check (public.is_admin() or public.has_role('coordinator'));
+
+-- Bucket privado para los PDF de reportes/boletines. El acceso real lo dan
+-- las políticas de storage.objects de abajo, no el flag `public`.
+insert into storage.buckets (id, name, public)
+values ('reports', 'reports', false)
+on conflict (id) do nothing;
+
+create policy "reports_bucket_insert_admin_or_coordinator" on storage.objects
+for insert with check (
+  bucket_id = 'reports' and (public.is_admin() or public.has_role('coordinator'))
+);
+
+-- El primer segmento de la ruta del objeto es el student_id (o
+-- "institutional"); así un estudiante/padre solo puede descargar los PDF
+-- guardados bajo su propio estudiante, y el staff descarga cualquiera.
+create policy "reports_bucket_select_allowed" on storage.objects
+for select using (
+  bucket_id = 'reports' and (
+    public.is_admin() or public.has_role('coordinator')
+    or (storage.foldername(name))[1] in (
+      select id::text from public.students where profile_id = auth.uid()
+    )
+    or (storage.foldername(name))[1] in (
+      select psr.student_id::text from public.parent_student_relationships psr
+      where psr.parent_profile_id = auth.uid() and psr.active = true
+    )
   )
 );

@@ -6,9 +6,14 @@
 
 import type {
     AcademicPeriodRow,
+    AttendanceRow,
+    DisciplinaryRecordRow,
     EnrollmentRow,
+    GeneratedReportRow,
+    GradeRow,
     ParentStudentRelationshipRow,
     ProfileRow,
+    ScheduleRow,
     StudentRow,
     SubjectRow,
     TeacherRow,
@@ -17,11 +22,22 @@ import type {
 import type {
     AcademicPeriod,
     AcademicPeriodInput,
+    Attendance,
+    AttendanceInput,
     AppUser,
+    DayOfWeek,
+    DisciplinaryRecord,
+    DisciplinaryRecordInput,
     Enrollment,
     EnrollmentInput,
+    GeneratedReport,
+    GeneratedReportInput,
+    Grade,
+    GradeInput,
     ParentStudentLink,
     Profile,
+    Schedule,
+    ScheduleInput,
     Student,
     StudentInput,
     Subject,
@@ -199,4 +215,133 @@ export function toParentStudentLink(row: ParentStudentRelationshipRow): ParentSt
         active: row.active,
         createdAt: row.created_at,
     };
+}
+
+/* ------------------------------- Calificaciones ------------------------------ */
+
+export function toGrade(row: GradeRow): Grade {
+    return {
+        id: row.id,
+        studentId: row.student_id,
+        subjectId: row.subject_id,
+        academicPeriodId: row.academic_period_id,
+        gradeValue: Number(row.grade_value),
+        gradeLetter: row.grade_letter,
+        recordedBy: row.recorded_by,
+        createdAt: row.created_at,
+    };
+}
+
+export function fromGrade(input: Partial<GradeInput>): Partial<GradeRow> {
+    return compact({
+        student_id: input.studentId,
+        subject_id: input.subjectId,
+        academic_period_id: input.academicPeriodId,
+        grade_value: input.gradeValue,
+        grade_letter: input.gradeLetter,
+        recorded_by: input.recordedBy,
+    });
+}
+
+/* --------------------------------- Asistencia --------------------------------- */
+
+export function toAttendance(row: AttendanceRow): Attendance {
+    return {
+        id: row.id,
+        studentId: row.student_id,
+        attendanceDate: row.attendance_date,
+        status: row.status,
+        recordedBy: row.recorded_by,
+        createdAt: row.created_at,
+    };
+}
+
+export function fromAttendance(input: Partial<AttendanceInput>): Partial<AttendanceRow> {
+    return compact({
+        student_id: input.studentId,
+        attendance_date: input.attendanceDate,
+        status: input.status,
+        recorded_by: input.recordedBy,
+    });
+}
+
+/* ---------------------------------- Horarios ---------------------------------- */
+
+export function toSchedule(row: ScheduleRow): Schedule {
+    return {
+        id: row.id,
+        gradeLevel: row.grade_level,
+        dayOfWeek: row.day_of_week as DayOfWeek,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        subjectId: row.subject_id,
+        teacherId: row.teacher_id,
+        classroom: row.classroom,
+        createdAt: row.created_at,
+    };
+}
+
+export function fromSchedule(input: Partial<ScheduleInput>): Partial<ScheduleRow> {
+    return compact({
+        grade_level: input.gradeLevel,
+        day_of_week: input.dayOfWeek,
+        start_time: input.startTime,
+        end_time: input.endTime,
+        subject_id: input.subjectId,
+        teacher_id: input.teacherId,
+        classroom: input.classroom,
+    });
+}
+
+/* -------------------------------- Disciplina ---------------------------------- */
+
+export function toDisciplinaryRecord(row: DisciplinaryRecordRow): DisciplinaryRecord {
+    return {
+        id: row.id,
+        studentId: row.student_id,
+        recordDate: row.record_date,
+        severity: row.severity,
+        description: row.description,
+        responsibleId: row.responsible_id,
+        notifiedParent: row.notified_parent,
+        createdAt: row.created_at,
+    };
+}
+
+export function fromDisciplinaryRecord(input: Partial<DisciplinaryRecordInput>): Partial<DisciplinaryRecordRow> {
+    return compact({
+        student_id: input.studentId,
+        record_date: input.recordDate,
+        severity: input.severity,
+        description: input.description,
+        responsible_id: input.responsibleId,
+        notified_parent: input.notifiedParent,
+    });
+}
+
+/* --------------------------------- Reportes ------------------------------- */
+
+export function toGeneratedReport(row: GeneratedReportRow): GeneratedReport {
+    return {
+        id: row.id,
+        studentId: row.student_id,
+        reportType: row.report_type,
+        fileUrl: row.file_url,
+        academicPeriodId: row.academic_period_id,
+        gradeLevel: row.grade_level,
+        generatedBy: row.generated_by,
+        generatedAt: row.generated_at,
+    };
+}
+
+export function fromGeneratedReport(input: Partial<GeneratedReportInput>): Partial<GeneratedReportRow> {
+    return compact({
+        id: input.id,
+        student_id: input.studentId,
+        report_type: input.reportType,
+        file_url: input.fileUrl,
+        academic_period_id: input.academicPeriodId,
+        grade_level: input.gradeLevel,
+        generated_by: input.generatedBy,
+    });
 }

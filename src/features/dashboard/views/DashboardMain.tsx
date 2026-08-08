@@ -7,6 +7,10 @@ import { useAppRouter } from '../../../routes/useAppRouter';
 import { getRoleLabel } from '../../../lib/roles';
 import type { AppSession } from '../../../types';
 import AdminRolesPanel from '../../admin/AdminRolesPanel';
+import AcademicPanel from '../../academic/AcademicPanel';
+import ProgressPanel from '../../progress/ProgressPanel';
+import ReportsPanel from '../../reports/ReportsPanel';
+import SchedulesPanel from '../../schedules/SchedulesPanel';
 import StudentsPanel from '../../students/StudentsPanel';
 import TeachersPanel from '../../teachers/TeachersPanel';
 import OverviewView from './OverviewView';
@@ -37,6 +41,10 @@ const VIEWS: Record<string, (context: ViewContext) => React.ReactNode> = {
     users: ({ session }) => <AdminRolesPanel currentUserEmail={session.user.email} />,
     students: () => <StudentsPanel />,
     teachers: () => <TeachersPanel />,
+    academic: ({ session }) => <AcademicPanel session={session} />,
+    progress: ({ session }) => <ProgressPanel session={session} />,
+    schedules: ({ session }) => <SchedulesPanel session={session} />,
+    reports: ({ session }) => <ReportsPanel session={session} />,
     security: () => <SecurityView />,
 };
 

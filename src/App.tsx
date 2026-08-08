@@ -1,83 +1,99 @@
-import { useMemo } from 'react';
-
 import Alert from '@cloudscape-design/components/alert';
 import Box from '@cloudscape-design/components/box';
 import Container from '@cloudscape-design/components/container';
 import Header from '@cloudscape-design/components/header';
 import SpaceBetween from '@cloudscape-design/components/space-between';
-import Spinner from '@cloudscape-design/components/spinner';
-import { TextContent } from '@cloudscape-design/components';
+import TextContent from '@cloudscape-design/components/text-content';
 
 import '@cloudscape-design/global-styles/index.css';
-import { AuthProvider, useAuthContext } from './context/AuthContext';
-import DashboardMain from './features/dashboard/views/DashboardMain';
+
+import LoadingState from './components/ui/LoadingState';
+import { AuthProvider } from './context/AuthContext';
+import { useAuthContext } from './context/authContextBase';
 import AuthPanel from './features/auth/AuthPanel';
+import DashboardMain from './features/dashboard/views/DashboardMain';
+import { isSupabaseConfigured } from './lib/supabase';
+
+function LandingPage({ blockedMessage }: { blockedMessage: string | null }) {
+    return (
+        <div className="app-shell">
+            <Header variant="h1">Arandu · Gestión escolar</Header>
+
+            {blockedMessage ? <Alert type="error" header="Sesión cerrada">{blockedMessage}</Alert> : null}
+
+            <Container>
+                <div className="hero-panel">
+                    <SpaceBetween size="l">
+                        <TextContent>
+                            <h2>Autenticación y acceso</h2>
+                            <p>
+                                Plataforma de gestión escolar con acceso por roles, modelo de datos académico y
+                                políticas de seguridad a nivel de fila sobre Supabase.
+                            </p>
+                        </TextContent>
+
+                        <Box variant="div">
+                            <SpaceBetween size="s">
+                                <strong>Arquitectura base</strong>
+                                <span>• React + Vite + Cloudscape para una interfaz consistente</span>
+                                <span>• Sesión y roles centralizados en una capa de dominio reutilizable</span>
+                                <span>• Servicios de datos tipados sobre Supabase, con RLS como control efectivo</span>
+                            </SpaceBetween>
+                        </Box>
+                    </SpaceBetween>
+                </div>
+
+                <div className="form-panel">
+                    <AuthPanel />
+                </div>
+            </Container>
+
+            <Container header={<Header variant="h2">Estado de la plataforma</Header>}>
+                <SpaceBetween size="m">
+                    {isSupabaseConfigured ? (
+                        <Alert type="info">Inicia sesión para acceder a tu panel según el rol asignado.</Alert>
+                    ) : (
+                        <Alert type="warning" header="Supabase no está configurado">
+                            Copia <code>.env.example</code> a <code>.env.local</code> y define{' '}
+                            <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> para habilitar
+                            el acceso.
+                        </Alert>
+                    )}
+
+                    <Box variant="div">
+                        <div className="module-pill">Login y registro con validación</div>
+                        <div className="module-pill">Gestión de usuarios y roles</div>
+                        <div className="module-pill">Navegación y permisos por rol</div>
+                        <div className="module-pill">Políticas RLS documentadas</div>
+                    </Box>
+                </SpaceBetween>
+            </Container>
+        </div>
+    );
+}
 
 function AppContent() {
-  const { session, loading, signOut } = useAuthContext();
-  const heading = useMemo(() => (session ? 'Panel de control' : 'Autenticación y acceso'), [session]);
+    const { session, loading, blockedMessage, signOut } = useAuthContext();
 
-  if (loading) {
-    return (
-      <div className="app-shell loading-state">
-        <Spinner size="large" />
-      </div>
+    if (loading) {
+        return (
+            <div className="app-shell loading-state">
+                <LoadingState text="Cargando tu sesión…" />
+            </div>
+        );
+    }
+
+    return session ? (
+        <DashboardMain session={session} loading={loading} onSignOut={signOut} />
+    ) : (
+        <LandingPage blockedMessage={blockedMessage} />
     );
-  }
-
-  if (!session) {
-    return (
-      <div className="app-shell">
-        <Header variant="h1">Sprint 1 · Arandu</Header>
-
-        <Container>
-          <div className="hero-panel">
-            <SpaceBetween size="l">
-              <TextContent>
-                <h2>{heading}</h2>
-                <p>
-                  Este sprint incorpora login, registro, administración de roles y un modelo de RLS básico
-                  con arquitectura modular para escalar hacia matrículas, calificaciones y módulos académicos.
-                </p>
-              </TextContent>
-
-              <Box variant="div">
-                <SpaceBetween size="s">
-                  <strong>Arquitectura base</strong>
-                  <span>• Frontend React + Vite + Cloudscape para una UI consistente y mantenible</span>
-                  <span>• Auth y sesión centralizados en una capa de dominio reutilizable</span>
-                  <span>• Roles y permisos desacoplados para facilitar futuras políticas de acceso</span>
-                </SpaceBetween>
-              </Box>
-            </SpaceBetween>
-          </div>
-
-          <div className="form-panel">
-            <AuthPanel />
-          </div>
-        </Container>
-
-        <Container header={<Header variant="h2">Qué incluye este sprint</Header>}>
-          <SpaceBetween size="m">
-            <Alert type="info">Inicia sesión para ver el panel de administración y la capa de permisos.</Alert>
-            <Box variant="div">
-              <div className="module-pill">Login y registro con feedback de estado</div>
-              <div className="module-pill">Gestión de roles por usuario</div>
-              <div className="module-pill">Políticas RLS documentadas para expansión</div>
-            </Box>
-          </SpaceBetween>
-        </Container>
-      </div>
-    );
-  }
-
-  return <DashboardMain session={session} loading={loading} onSignOut={signOut} />;
 }
 
 export default function App() {
-  return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
-  );
+    return (
+        <AuthProvider>
+            <AppContent />
+        </AuthProvider>
+    );
 }

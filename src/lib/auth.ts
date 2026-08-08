@@ -1,379 +1,192 @@
-import { isSupabaseConfigured, supabase } from "./supabase";
+/**
+ * Autenticación y construcción de la sesión de aplicación.
+ *
+ * Traduce la sesión cruda de Supabase al `AppSession` que consume la interfaz,
+ * resolviendo el rol siempre desde la tabla `profiles`.
+ */
 
-import {
-  fetchProfileById,
-  listProfiles,
-  upsertProfile,
-  updateProfileRole,
-} from "./profiles";
+import type { Session } from '@supabase/supabase-js';
 
-import type {
-  AppRole,
-  AppSession,
-  AppUser,
-} from "../types";
+import { AppError, toAppError } from './errors';
+import { fetchProfileById, upsertProfile } from '../services/profiles';
+import { isSupabaseConfigured, requireSupabase, supabase } from './supabase';
+import type { AppRole, AppSession } from '../types';
 
+/**
+ * Rol tentativo deducido del correo.
+ *
+ * Es un atajo de desarrollo para poder probar los distintos paneles sin
+ * sembrar perfiles a mano. En producción nunca decide el acceso: la fuente de
+ * verdad es `profiles.role` y, por debajo, las políticas RLS.
+ */
 function resolveRoleFromEmail(email: string): AppRole {
-  const normalized = email.toLowerCase();
+    if (!import.meta.env.DEV) {
+        return 'student';
+    }
 
-  // Development fallback only.
-  // Do NOT use this as the authoritative authorization mechanism.
-  if (normalized.includes("admin")) return "admin";
-  if (normalized.includes("coord")) return "coordinator";
-  if (
-    normalized.includes("docente") ||
-    normalized.includes("teacher")
-  ) {
-    return "teacher";
-  }
-  if (
-    normalized.includes("padre") ||
-    normalized.includes("parent")
-  ) {
-    return "parent";
-  }
+    const normalized = email.toLowerCase();
 
-  return "student";
+    if (normalized.includes('admin')) return 'admin';
+    if (normalized.includes('coord')) return 'coordinator';
+    if (normalized.includes('docente') || normalized.includes('teacher')) return 'teacher';
+    if (normalized.includes('padre') || normalized.includes('parent')) return 'parent';
+
+    return 'student';
 }
 
-/**
- * Transforms a raw Supabase Session into the application's AppSession.
- */
-export async function buildAppSession(
-  supabaseSession: any
-): Promise<AppSession | null> {
-  if (!supabaseSession?.user) {
-    return null;
-  }
+/** Convierte una sesión de Supabase en la sesión de la aplicación. */
+export async function buildAppSession(supabaseSession: Session | null): Promise<AppSession | null> {
+    if (!supabaseSession?.user) {
+        return null;
+    }
 
-  const userId = supabaseSession.user.id;
+    const userId = supabaseSession.user.id;
+    const email = supabaseSession.user.email ?? 'sin-email@arandu.com';
 
-  const email =
-    supabaseSession.user.email ??
-    "sin-email@arandu.com";
+    let profile = null;
 
-  console.debug("[auth] Building app session", {
-    userId,
-    email,
-  });
+    try {
+        profile = await fetchProfileById(userId);
+    } catch (error) {
+        // Un perfil ilegible no debe tumbar la sesión: se degrada al rol mínimo
+        // y las políticas RLS siguen protegiendo los datos.
+        console.error('[auth] No se pudo leer el perfil del usuario', toAppError(error));
+    }
 
-  let profile = null;
+    if (profile && !profile.active) {
+        // La cuenta de Supabase sigue siendo válida (el JWT no expira solo
+        // porque el perfil se desactivó), así que hay que cerrarla
+        // explícitamente para que no vuelva a autenticar en la próxima carga.
+        await supabase?.auth.signOut().catch(() => { });
+        throw new AppError('account-disabled', 'Tu cuenta ha sido desactivada. Contacta a un administrador para reactivarla.');
+    }
 
-  try {
-    profile = await fetchProfileById(userId);
-
-    console.debug("[auth] Profile fetched", {
-      profile,
-    });
-  } catch (error) {
-    console.error(
-      "[auth] Failed to fetch profile",
-      {
-        userId,
-        error,
-      }
-    );
-  }
-
-  const role =
-    profile?.role ??
-    resolveRoleFromEmail(email);
-
-  const name =
-    profile?.name ??
-    supabaseSession.user.user_metadata?.full_name ??
-    email;
-
-  console.debug("[auth] Resolved user", {
-    userId,
-    email,
-    name,
-    role,
-    profileExists: !!profile,
-  });
-
-  return {
-    user: {
-      id: userId,
-      email,
-      name,
-      role,
-    },
-    accessToken:
-      supabaseSession.access_token ?? "",
-    mode: "supabase",
-  };
+    return {
+        user: {
+            id: userId,
+            email,
+            name: profile?.name ?? supabaseSession.user.user_metadata?.full_name ?? email,
+            role: profile?.role ?? resolveRoleFromEmail(email),
+            active: profile?.active ?? true,
+        },
+        accessToken: supabaseSession.access_token ?? '',
+        mode: 'supabase',
+    };
 }
 
-/**
- * Gets the current valid session directly from Supabase.
- */
+/** Sesión vigente, leída directamente de Supabase. */
 export async function getCurrentSession(): Promise<AppSession | null> {
-  if (!supabase || !isSupabaseConfigured) {
-    console.info(
-      "[auth] Supabase no está configurado"
-    );
-
-    return null;
-  }
-
-  const {
-    data,
-    error,
-  } = await supabase.auth.getSession();
-
-  console.debug(
-    "[auth] getCurrentSession returned",
-    {
-      data,
-      error,
+    if (!isSupabaseConfigured || !supabase) {
+        return null;
     }
-  );
 
-  if (error || !data.session) {
-    return null;
-  }
+    const { data, error } = await supabase.auth.getSession();
 
-  return buildAppSession(data.session);
+    if (error || !data.session) {
+        return null;
+    }
+
+    return buildAppSession(data.session);
+}
+
+export async function signInWithPassword(email: string, password: string): Promise<AppSession> {
+    const client = requireSupabase();
+
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+
+    if (error) {
+        throw toAppError(error, 'auth');
+    }
+
+    const session = data.session ? await buildAppSession(data.session) : null;
+
+    if (!session) {
+        throw new AppError('auth', 'No se pudo iniciar la sesión.');
+    }
+
+    return session;
 }
 
 /**
- * Signs in an existing user.
+ * Registra un usuario y crea su perfil.
+ *
+ * Devuelve `null` cuando el proyecto exige confirmación por correo: la cuenta
+ * queda creada pero todavía no hay sesión.
  */
-export async function signInWithPassword(
-  email: string,
-  password: string
-): Promise<AppSession> {
-  if (!supabase || !isSupabaseConfigured) {
-    throw new Error(
-      "Supabase no está configurado."
-    );
-  }
+export async function signUpWithPassword(email: string, password: string): Promise<AppSession | null> {
+    const client = requireSupabase();
 
-  const {
-    data,
-    error,
-  } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+    const { data, error } = await client.auth.signUp({ email, password });
 
-  console.debug(
-    "[auth] signInWithPassword response",
-    {
-      data,
-      error,
+    if (error) {
+        throw toAppError(error, 'auth');
     }
-  );
 
-  if (error) {
-    throw error;
-  }
-
-  if (!data.session) {
-    throw new Error(
-      "No se pudo iniciar la sesión."
-    );
-  }
-
-  const session =
-    await buildAppSession(data.session);
-
-  if (!session) {
-    throw new Error(
-      "No se pudo construir la sesión de usuario."
-    );
-  }
-
-  return session;
-}
-
-/**
- * Registers a new user and creates their profile.
- */
-export async function signUpWithPassword(
-  email: string,
-  password: string
-): Promise<AppSession | null> {
-  if (!supabase || !isSupabaseConfigured) {
-    throw new Error(
-      "Supabase no está configurado."
-    );
-  }
-
-  const {
-    data,
-    error,
-  } = await supabase.auth.signUp({
-    email,
-    password,
-  });
-
-  console.debug(
-    "[auth] signUpWithPassword response",
-    {
-      data,
-      error,
+    if (!data.user) {
+        throw new AppError('unknown', 'Supabase creó la cuenta pero no devolvió el usuario.');
     }
-  );
 
-  if (error) {
-    throw error;
-  }
+    if (!data.session) {
+        // Sin sesión no hay JWT, así que la RLS de `profiles` rechazaría el
+        // insert. El perfil se crea en el primer inicio de sesión.
+        return null;
+    }
 
-  /**
-   * Supabase may return no session when email
-   * confirmation is enabled.
-   */
-  if (!data.session) {
-    console.info(
-      "[auth] User created but session is not available yet."
-    );
+    const userEmail = data.user.email ?? email;
 
-    return null;
-  }
-
-  const userId = data.user?.id;
-
-  if (!userId) {
-    throw new Error(
-      "Supabase creó el usuario pero no devolvió su ID."
-    );
-  }
-
-  const userEmail =
-    data.user.email ??
-    email;
-
-  const role =
-    resolveRoleFromEmail(userEmail);
-
-  const name =
-    data.user.user_metadata?.full_name ??
-    userEmail;
-
-  /**
-   * Create the profile explicitly after registration.
-   */
-  try {
     await upsertProfile({
-      id: userId,
-      email: userEmail,
-      full_name: name,
-      role,
+        id: data.user.id,
+        email: userEmail,
+        fullName: data.user.user_metadata?.full_name ?? userEmail,
+        role: resolveRoleFromEmail(userEmail),
     });
 
-    console.debug(
-      "[auth] Profile created successfully",
-      {
-        userId,
-        role,
-      }
-    );
-  } catch (error) {
-    console.error(
-      "[auth] Failed to create profile",
-      {
-        userId,
-        error,
-      }
-    );
-
-    throw error;
-  }
-
-  /**
-   * Now that the profile exists, build the
-   * application session.
-   */
-  const session =
-    await buildAppSession(data.session);
-
-  if (!session) {
-    throw new Error(
-      "No se pudo construir la sesión de usuario tras el registro."
-    );
-  }
-
-  return session;
+    return buildAppSession(data.session);
 }
 
 export async function signOut(): Promise<void> {
-  if (!supabase || !isSupabaseConfigured) {
-    return;
-  }
+    if (!isSupabaseConfigured || !supabase) {
+        return;
+    }
 
-  const { error } =
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
 
-  if (error) {
-    throw error;
-  }
-}
-
-export async function listUsers(): Promise<AppUser[]> {
-  if (!supabase || !isSupabaseConfigured) {
-    throw new Error(
-      "Supabase no está configurado."
-    );
-  }
-
-  return listProfiles();
-}
-
-export async function updateUserRole(
-  email: string,
-  role: AppRole
-): Promise<void> {
-  if (!supabase || !isSupabaseConfigured) {
-    throw new Error(
-      "Supabase no está configurado."
-    );
-  }
-
-  await updateProfileRole(email, role);
+    if (error) {
+        throw toAppError(error, 'auth');
+    }
 }
 
 /**
- * Subscribes to Supabase authentication changes.
+ * Suscribe a los cambios de autenticación. Devuelve la función para cancelar.
+ *
+ * `blockedMessage` solo llega cuando la sesión se cerró porque la cuenta está
+ * desactivada; distinguirlo le permite a la interfaz mostrar por qué en vez de
+ * un cierre de sesión silencioso.
  */
 export function subscribeToAuthChanges(
-  callback: (
-    session: AppSession | null
-  ) => void
-) {
-  if (!supabase || !isSupabaseConfigured) {
-    return () => {};
-  }
-
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange(
-    async (_event, supabaseSession) => {
-      if (!supabaseSession) {
-        callback(null);
-        return;
-      }
-
-      try {
-        const appSession =
-          await buildAppSession(
-            supabaseSession
-          );
-
-        callback(appSession);
-      } catch (error) {
-        console.error(
-          "[auth] Failed to build session after auth change",
-          error
-        );
-
-        callback(null);
-      }
+    callback: (session: AppSession | null, blockedMessage?: string) => void,
+): () => void {
+    if (!isSupabaseConfigured || !supabase) {
+        return () => { };
     }
-  );
 
-  return () => {
-    subscription.unsubscribe();
-  };
+    const {
+        data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, supabaseSession) => {
+        try {
+            callback(await buildAppSession(supabaseSession));
+        } catch (error) {
+            const appError = toAppError(error);
+
+            if (appError.kind === 'account-disabled') {
+                callback(null, appError.message);
+                return;
+            }
+
+            console.error('[auth] No se pudo reconstruir la sesión', appError);
+            callback(null);
+        }
+    });
+
+    return () => subscription.unsubscribe();
 }

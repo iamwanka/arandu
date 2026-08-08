@@ -6,6 +6,7 @@ create table if not exists public.profiles (
   full_name text not null,
   email text not null unique,
   phone text,
+  active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
@@ -150,12 +151,49 @@ alter table public.generated_reports enable row level security;
 create policy "profiles_select_own" on public.profiles
 for select using (auth.uid() = id);
 
+-- Sin esta política, el alta de un usuario nuevo no puede crear su propio
+-- perfil: en ese momento is_admin() todavía es falso porque el perfil no
+-- existe, así que "profiles_manage_admins" no aplica. La restricción real de
+-- qué rol puede autoasignarse queda del lado del cliente (ver lib/auth.ts);
+-- aquí solo se garantiza que cada usuario únicamente pueda crear su propia fila.
+create policy "profiles_insert_own" on public.profiles
+for insert with check (auth.uid() = id);
+
 create function public.is_admin() returns boolean
 language sql stable security definer
 as $$
   select exists (
     select 1 from public.profiles
     where id = auth.uid() and role = 'admin'
+  );
+$$;
+
+-- `is_admin()` cubre solo el rol admin; la mayoría de tablas académicas las
+-- gestionan admin y coordinador por igual, así que se generaliza en dos
+-- funciones más para no repetir el mismo `exists (...)` en cada política.
+create function public.has_role(required_role text) returns boolean
+language sql stable security definer
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role = required_role
+  );
+$$;
+
+create function public.is_staff() returns boolean
+language sql stable security definer
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where profiles.id = auth.uid()
+      and profiles.role in (
+        'admin',
+        'coordinator',
+        'teacher'
+      )
   );
 $$;
 
@@ -169,19 +207,66 @@ for select using (
     select 1 from public.parent_student_relationships psr
     where psr.student_id = students.id and psr.parent_profile_id = auth.uid() and psr.active = true
   )
-  or exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role in ('admin', 'coordinator', 'teacher')
-  )
+  or public.is_staff()
 );
 
-create policy "students_manage_admins" on public.students
-for all using (
-  exists (
-    select 1 from public.profiles p
-    where p.id = auth.uid() and p.role = 'admin'
+create policy "students_manage_admin_or_coordinator" on public.students
+for all using (public.is_admin() or public.has_role('coordinator'))
+with check (public.is_admin() or public.has_role('coordinator'));
+
+-- El directorio de docentes no es sensible: cualquier usuario autenticado
+-- puede consultarlo (lo necesitan asignaturas, horarios y las vistas de
+-- estudiantes/padres). Solo admin y coordinador lo editan.
+create policy "teachers_select_authenticated" on public.teachers
+for select using (true);
+
+create policy "teachers_manage_admin_or_coordinator" on public.teachers
+for all using (public.is_admin() or public.has_role('coordinator'))
+with check (public.is_admin() or public.has_role('coordinator'));
+
+create policy "subjects_select_authenticated" on public.subjects
+for select using (true);
+
+create policy "subjects_manage_admin_or_coordinator" on public.subjects
+for all using (public.is_admin() or public.has_role('coordinator'))
+with check (public.is_admin() or public.has_role('coordinator'));
+
+create policy "academic_periods_select_authenticated" on public.academic_periods
+for select using (true);
+
+create policy "academic_periods_manage_admin_or_coordinator" on public.academic_periods
+for all using (public.is_admin() or public.has_role('coordinator'))
+with check (public.is_admin() or public.has_role('coordinator'));
+
+create policy "schedules_select_authenticated" on public.schedules
+for select using (true);
+
+create policy "schedules_manage_admin_or_coordinator" on public.schedules
+for all using (public.is_admin() or public.has_role('coordinator'))
+with check (public.is_admin() or public.has_role('coordinator'));
+
+create policy "enrollments_select_allowed" on public.enrollments
+for select using (
+  student_id in (
+    select id from public.students where profile_id = auth.uid()
   )
+  or exists (
+    select 1 from public.parent_student_relationships psr
+    where psr.student_id = enrollments.student_id and psr.parent_profile_id = auth.uid() and psr.active = true
+  )
+  or public.is_staff()
 );
+
+create policy "enrollments_manage_admin_or_coordinator" on public.enrollments
+for all using (public.is_admin() or public.has_role('coordinator'))
+with check (public.is_admin() or public.has_role('coordinator'));
+
+create policy "parent_relationships_select_own" on public.parent_student_relationships
+for select using (parent_profile_id = auth.uid());
+
+create policy "parent_relationships_manage_admin" on public.parent_student_relationships
+for all using (public.is_admin() or public.has_role('coordinator'))
+with check (public.is_admin() or public.has_role('coordinator'));
 
 create policy "grades_select_allowed" on public.grades
 for select using (

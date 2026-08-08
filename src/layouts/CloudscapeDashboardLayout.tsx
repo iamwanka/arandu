@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import AppLayout from '@cloudscape-design/components/app-layout';
 import Box from '@cloudscape-design/components/box';
-import ContentLayout from '@cloudscape-design/components/content-layout';
 import Header from '@cloudscape-design/components/header';
 import SideNavigation from '@cloudscape-design/components/side-navigation';
 import SpaceBetween from '@cloudscape-design/components/space-between';
@@ -35,12 +34,12 @@ export default function CloudscapeDashboardLayout({
         <AppLayout
             navigation={
                 <SideNavigation
-                    header={{ text: 'Navegación' }}
+                    header={{ text: 'Navegación', href: '#' }}
                     items={navigationItems}
                     activeHref={activeHref}
                     onFollow={(event) => {
                         event.preventDefault();
-                        const nextHref = event.detail.item.href as string | undefined;
+                        const nextHref = (event.detail as { href?: string }).href;
                         if (nextHref) {
                             onNavigation(nextHref);
                         }

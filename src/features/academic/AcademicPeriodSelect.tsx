@@ -12,7 +12,7 @@ interface AcademicPeriodSelectProps {
 
 /** Selector de periodo académico, usado por el wizard de matrícula. */
 export default function AcademicPeriodSelect({ value, onChange, disabled }: AcademicPeriodSelectProps) {
-    const { data, loading } = useAsyncData(() => academicPeriodsService.list(), []);
+    const { data, loading, error, reload } = useAsyncData(() => academicPeriodsService.list(), []);
 
     const periods = data ?? [];
     const options = periods.map((period) => ({
@@ -33,7 +33,10 @@ export default function AcademicPeriodSelect({ value, onChange, disabled }: Acad
             }}
             options={options}
             loadingText="Cargando periodos…"
-            statusType={loading ? 'loading' : 'finished'}
+            statusType={loading ? 'loading' : error ? 'error' : 'finished'}
+            errorText={error ?? undefined}
+            recoveryText="Reintentar"
+            onLoadItems={() => void reload()}
             empty="No hay periodos académicos. Crea uno primero en la pestaña Periodos."
             placeholder="Selecciona un periodo"
             filteringType="auto"

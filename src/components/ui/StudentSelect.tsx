@@ -13,7 +13,7 @@ interface StudentSelectProps {
 
 /** Selector de un estudiante ya registrado, para el flujo de matrícula. */
 export default function StudentSelect({ value, onChange, placeholder = 'Selecciona un estudiante', disabled }: StudentSelectProps) {
-    const { data, loading } = useAsyncData(() => studentsService.list(), []);
+    const { data, loading, error, reload } = useAsyncData(() => studentsService.list(), []);
 
     const students = data ?? [];
     const options = students.map((student) => ({
@@ -34,7 +34,10 @@ export default function StudentSelect({ value, onChange, placeholder = 'Seleccio
             }}
             options={options}
             loadingText="Cargando estudiantes…"
-            statusType={loading ? 'loading' : 'finished'}
+            statusType={loading ? 'loading' : error ? 'error' : 'finished'}
+            errorText={error ?? undefined}
+            recoveryText="Reintentar"
+            onLoadItems={() => void reload()}
             empty="No hay estudiantes registrados. Crea uno primero en Estudiantes."
             placeholder={placeholder}
             filteringType="auto"

@@ -97,3 +97,25 @@ button {
     margin-bottom: 1rem;
   }
 }
+
+/*
+ * `applyMode` (ThemeContext) alterna esta misma clase en <body> — es la que
+ * usa Cloudscape para su propio modo oscuro, así que basta con seguirle el
+ * paso acá para que el resto del CSS a medida (landing pre-login) no quede
+ * desentonado cuando el usuario elige "Oscuro".
+ */
+body.awsui-dark-mode {
+  background: linear-gradient(135deg, #14101f 0%, #0f1420 100%);
+  color: #e5e7eb;
+}
+
+body.awsui-dark-mode .hero-card {
+  background: #1a1625;
+  border-color: #2d2740;
+}
+
+body.awsui-dark-mode .module-pill {
+  background: #1a2130;
+  border-color: #334155;
+  color: #cbd5e1;
+}

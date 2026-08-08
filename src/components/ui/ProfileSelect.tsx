@@ -32,7 +32,7 @@ export default function ProfileSelect({
     placeholder = 'Selecciona una cuenta',
     disabled,
 }: ProfileSelectProps) {
-    const { data, loading } = useAsyncData(() => listProfilesByRole(role), [role]);
+    const { data, loading, error, reload } = useAsyncData(() => listProfilesByRole(role), [role]);
 
     const excluded = new Set(excludeProfileIds);
     const candidates = (data ?? []).filter((profile) => !excluded.has(profile.id));
@@ -55,7 +55,10 @@ export default function ProfileSelect({
             }}
             options={options}
             loadingText="Cargando cuentas…"
-            statusType={loading ? 'loading' : 'finished'}
+            statusType={loading ? 'loading' : error ? 'error' : 'finished'}
+            errorText={error ?? undefined}
+            recoveryText="Reintentar"
+            onLoadItems={() => void reload()}
             empty="No hay cuentas disponibles con ese rol para vincular. Asígnalo primero en Usuarios y roles."
             placeholder={placeholder}
             filteringType="auto"

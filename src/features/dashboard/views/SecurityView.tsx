@@ -5,6 +5,7 @@ import StatusIndicator from '@cloudscape-design/components/status-indicator';
 import { DataTable, SectionCard } from '../../../components/ui';
 import RlsPolicyCard from '../../rls/RlsPolicyCard';
 import { ROLE_OPTIONS, hasPermission, type Permission } from '../../../lib/roles';
+import { isSupabaseConfigured } from '../../../lib/supabase';
 import { APP_ROUTES } from '../../../routes/appRoutes';
 import type { AppRole } from '../../../types';
 
@@ -30,6 +31,17 @@ const ACCESS_ROWS: AccessRow[] = APP_ROUTES.map((route) => ({
 export default function SecurityView() {
     return (
         <SpaceBetween size="l">
+            <SectionCard
+                title="Estado de la plataforma"
+                description="Comprobaciones básicas del entorno en el que corre la aplicación."
+            >
+                <StatusIndicator type={isSupabaseConfigured ? 'success' : 'warning'}>
+                    {isSupabaseConfigured
+                        ? 'Conexión con Supabase configurada'
+                        : 'Supabase sin configurar: define VITE_SUPABASE_URL y VITE_SUPABASE_PUBLISHABLE_KEY'}
+                </StatusIndicator>
+            </SectionCard>
+
             <SectionCard
                 title="Control de acceso por rol"
                 description="Generado a partir del registro de rutas: refleja exactamente lo que aplica la aplicación."

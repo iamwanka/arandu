@@ -12,7 +12,7 @@ interface SubjectSelectProps {
 
 /** Selector de una asignatura activa, usado para registrar calificaciones. */
 export default function SubjectSelect({ value, onChange, disabled }: SubjectSelectProps) {
-    const { data, loading } = useAsyncData(() => subjectsService.list(), []);
+    const { data, loading, error, reload } = useAsyncData(() => subjectsService.list(), []);
 
     const subjects = (data ?? []).filter((subject) => subject.active);
     const options = subjects.map((subject) => ({
@@ -33,7 +33,10 @@ export default function SubjectSelect({ value, onChange, disabled }: SubjectSele
             }}
             options={options}
             loadingText="Cargando asignaturas…"
-            statusType={loading ? 'loading' : 'finished'}
+            statusType={loading ? 'loading' : error ? 'error' : 'finished'}
+            errorText={error ?? undefined}
+            recoveryText="Reintentar"
+            onLoadItems={() => void reload()}
             empty="No hay asignaturas activas. Crea una primero en la pestaña Asignaturas."
             placeholder="Selecciona una asignatura"
             filteringType="auto"

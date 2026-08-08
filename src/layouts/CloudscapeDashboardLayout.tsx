@@ -7,7 +7,15 @@ import SpaceBetween from '@cloudscape-design/components/space-between';
 import TopNavigation from '@cloudscape-design/components/top-navigation';
 import type { SideNavigationProps } from '@cloudscape-design/components/side-navigation';
 
+import { useThemeContext } from '../context/themeContextBase';
+import { getRoleLabel } from '../lib/roles';
 import type { AppSession } from '../types';
+
+const THEME_ITEM_IDS = {
+    system: 'theme-system',
+    light: 'theme-light',
+    dark: 'theme-dark',
+} as const;
 
 interface CloudscapeDashboardLayoutProps {
     session: AppSession;
@@ -30,6 +38,8 @@ export default function CloudscapeDashboardLayout({
     subtitle,
     children,
 }: CloudscapeDashboardLayoutProps) {
+    const { preference, setPreference } = useThemeContext();
+
     return (
         <AppLayout
             navigation={
@@ -52,23 +62,57 @@ export default function CloudscapeDashboardLayout({
                 <Box padding="l">
                     <SpaceBetween size="l">
                         <TopNavigation
-                            identity={{ title: 'Arandu', href: '#' }}
-                            utilities={
-                                session
-                                    ? [
+                            identity={{
+                                title: 'Arandu',
+                                href: '#',
+                                logo: { src: '/favicon.svg', alt: 'Arandu' },
+                            }}
+                            utilities={[
+                                {
+                                    type: 'menu-dropdown',
+                                    text: `${session.user.name} · ${getRoleLabel(session.user.role)}`,
+                                    description: session.user.email,
+                                    iconName: 'user-profile',
+                                    items: [
                                         {
-                                            type: 'button',
-                                            text: session.user.email,
-                                            onClick: () => { },
+                                            id: 'theme-group',
+                                            text: 'Tema',
+                                            items: [
+                                                {
+                                                    id: THEME_ITEM_IDS.system,
+                                                    itemType: 'checkbox',
+                                                    text: 'Sistema',
+                                                    checked: preference === 'system',
+                                                },
+                                                {
+                                                    id: THEME_ITEM_IDS.light,
+                                                    itemType: 'checkbox',
+                                                    text: 'Claro',
+                                                    checked: preference === 'light',
+                                                },
+                                                {
+                                                    id: THEME_ITEM_IDS.dark,
+                                                    itemType: 'checkbox',
+                                                    text: 'Oscuro',
+                                                    checked: preference === 'dark',
+                                                },
+                                            ],
                                         },
-                                        {
-                                            type: 'button',
-                                            text: 'Cerrar sesión',
-                                            onClick: onSignOut,
-                                        },
-                                    ]
-                                    : []
-                            }
+                                        { id: 'signout', text: 'Cerrar sesión', iconName: 'sign-out' },
+                                    ],
+                                    onItemClick: ({ detail }) => {
+                                        if (detail.id === 'signout') {
+                                            void onSignOut();
+                                        } else if (detail.id === THEME_ITEM_IDS.system) {
+                                            setPreference('system');
+                                        } else if (detail.id === THEME_ITEM_IDS.light) {
+                                            setPreference('light');
+                                        } else if (detail.id === THEME_ITEM_IDS.dark) {
+                                            setPreference('dark');
+                                        }
+                                    },
+                                },
+                            ]}
                         />
                         <Box>
                             <Header id="cloudscape-dashboard-header" variant="h2">

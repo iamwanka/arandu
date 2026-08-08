@@ -18,7 +18,7 @@ interface TeacherSelectProps {
  * quedó resuelto al crear el docente.
  */
 export default function TeacherSelect({ value, onChange, placeholder = 'Sin asignar', disabled }: TeacherSelectProps) {
-    const { data, loading } = useAsyncData(() => teachersService.list(), []);
+    const { data, loading, error, reload } = useAsyncData(() => teachersService.list(), []);
 
     const candidates = (data ?? []).filter((teacher) => teacher.active);
     const options = candidates.map((teacher) => ({
@@ -39,7 +39,10 @@ export default function TeacherSelect({ value, onChange, placeholder = 'Sin asig
             }}
             options={options}
             loadingText="Cargando docentes…"
-            statusType={loading ? 'loading' : 'finished'}
+            statusType={loading ? 'loading' : error ? 'error' : 'finished'}
+            errorText={error ?? undefined}
+            recoveryText="Reintentar"
+            onLoadItems={() => void reload()}
             empty="No hay docentes activos. Crea uno primero en Docentes."
             placeholder={placeholder}
             filteringType="auto"

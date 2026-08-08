@@ -10,6 +10,7 @@ import '@cloudscape-design/global-styles/index.css';
 import LoadingState from './components/ui/LoadingState';
 import { AuthProvider } from './context/AuthContext';
 import { useAuthContext } from './context/authContextBase';
+import { ThemeProvider } from './context/ThemeContext';
 import AuthPanel from './features/auth/AuthPanel';
 import DashboardMain from './features/dashboard/views/DashboardMain';
 import { isSupabaseConfigured } from './lib/supabase';
@@ -92,8 +93,10 @@ function AppContent() {
 
 export default function App() {
     return (
-        <AuthProvider>
-            <AppContent />
-        </AuthProvider>
+        <ThemeProvider>
+            <AuthProvider>
+                <AppContent />
+            </AuthProvider>
+        </ThemeProvider>
     );
 }

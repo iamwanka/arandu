@@ -3,9 +3,9 @@ import { useMemo, useState } from 'react';
 import Badge from '@cloudscape-design/components/badge';
 import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
-import ColumnLayout from '@cloudscape-design/components/column-layout';
 import Container from '@cloudscape-design/components/container';
 import Header from '@cloudscape-design/components/header';
+import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
 import Select from '@cloudscape-design/components/select';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 
@@ -144,16 +144,19 @@ export default function MyProgressView({ session }: { session: AppSession }) {
                 title={studentList.length > 1 ? `Progreso de ${activeStudent?.fullName ?? ''}` : 'Tu progreso académico'}
                 description={activeStudent?.gradeLevel ?? undefined}
             >
-                <ColumnLayout columns={2} variant="text-grid">
-                    <div>
-                        <Box variant="awsui-key-label">Promedio de calificaciones</Box>
-                        <Box fontSize="display-l">{average !== null ? average.toFixed(2) : '—'}</Box>
-                    </div>
-                    <div>
-                        <Box variant="awsui-key-label">Porcentaje de asistencia</Box>
-                        <Box fontSize="display-l">{attendanceRate !== null ? `${attendanceRate}%` : '—'}</Box>
-                    </div>
-                </ColumnLayout>
+                <KeyValuePairs
+                    columns={2}
+                    items={[
+                        {
+                            label: 'Promedio de calificaciones',
+                            value: <Box fontSize="display-l">{average !== null ? average.toFixed(2) : '—'}</Box>,
+                        },
+                        {
+                            label: 'Porcentaje de asistencia',
+                            value: <Box fontSize="display-l">{attendanceRate !== null ? `${attendanceRate}%` : '—'}</Box>,
+                        },
+                    ]}
+                />
             </SectionCard>
 
             <DataTable

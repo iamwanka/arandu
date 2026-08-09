@@ -2,10 +2,10 @@ import { useState } from 'react';
 
 import Alert from '@cloudscape-design/components/alert';
 import Box from '@cloudscape-design/components/box';
-import ColumnLayout from '@cloudscape-design/components/column-layout';
 import DatePicker from '@cloudscape-design/components/date-picker';
 import FormField from '@cloudscape-design/components/form-field';
 import Input from '@cloudscape-design/components/input';
+import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import Wizard, { type WizardProps } from '@cloudscape-design/components/wizard';
 
@@ -179,24 +179,15 @@ export default function EnrollmentWizard({ session, onDismiss, onCreated }: Enro
             content: (
                 <SpaceBetween size="l">
                     <FeedbackAlert error={create.error} />
-                    <ColumnLayout columns={2} variant="text-grid">
-                        <div>
-                            <Box variant="awsui-key-label">Estudiante</Box>
-                            <Box>{student?.fullName ?? '—'}</Box>
-                        </div>
-                        <div>
-                            <Box variant="awsui-key-label">Periodo académico</Box>
-                            <Box>{period?.name ?? '—'}</Box>
-                        </div>
-                        <div>
-                            <Box variant="awsui-key-label">Grado o curso</Box>
-                            <Box>{gradeLevel || '—'}</Box>
-                        </div>
-                        <div>
-                            <Box variant="awsui-key-label">Fecha de matrícula</Box>
-                            <Box>{enrollmentDate}</Box>
-                        </div>
-                    </ColumnLayout>
+                    <KeyValuePairs
+                        columns={2}
+                        items={[
+                            { label: 'Estudiante', value: student?.fullName ?? '—' },
+                            { label: 'Periodo académico', value: period?.name ?? '—' },
+                            { label: 'Grado o curso', value: gradeLevel || '—' },
+                            { label: 'Fecha de matrícula', value: enrollmentDate },
+                        ]}
+                    />
                     <Box color="text-body-secondary">
                         Al confirmar se creará la matrícula con estado «Activa» y se descargará el comprobante en PDF.
                     </Box>

@@ -1,6 +1,6 @@
 import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
-import ColumnLayout from '@cloudscape-design/components/column-layout';
+import KeyValuePairs from '@cloudscape-design/components/key-value-pairs';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 
 import { FeedbackAlert, SectionCard } from '../../../../components/ui';
@@ -42,24 +42,27 @@ export default function AdminOverview({ onNavigate }: AdminOverviewProps) {
             <SpaceBetween size="l">
                 <FeedbackAlert error={error} />
 
-                <ColumnLayout columns={4} variant="text-grid">
-                    <div>
-                        <Box variant="awsui-key-label">Estudiantes registrados</Box>
-                        <Box fontSize="display-l">{loading ? '—' : data?.studentsCount}</Box>
-                    </div>
-                    <div>
-                        <Box variant="awsui-key-label">Docentes activos</Box>
-                        <Box fontSize="display-l">{loading ? '—' : data?.activeTeachersCount}</Box>
-                    </div>
-                    <div>
-                        <Box variant="awsui-key-label">Matrículas activas</Box>
-                        <Box fontSize="display-l">{loading ? '—' : data?.activeEnrollments}</Box>
-                    </div>
-                    <div>
-                        <Box variant="awsui-key-label">Matrículas pendientes</Box>
-                        <Box fontSize="display-l">{loading ? '—' : data?.pendingEnrollments}</Box>
-                    </div>
-                </ColumnLayout>
+                <KeyValuePairs
+                    columns={4}
+                    items={[
+                        {
+                            label: 'Estudiantes registrados',
+                            value: <Box fontSize="display-l">{loading ? '—' : data?.studentsCount}</Box>,
+                        },
+                        {
+                            label: 'Docentes activos',
+                            value: <Box fontSize="display-l">{loading ? '—' : data?.activeTeachersCount}</Box>,
+                        },
+                        {
+                            label: 'Matrículas activas',
+                            value: <Box fontSize="display-l">{loading ? '—' : data?.activeEnrollments}</Box>,
+                        },
+                        {
+                            label: 'Matrículas pendientes',
+                            value: <Box fontSize="display-l">{loading ? '—' : data?.pendingEnrollments}</Box>,
+                        },
+                    ]}
+                />
 
                 <SpaceBetween direction="horizontal" size="xs">
                     <Button iconName="add-plus" onClick={() => onNavigate('/dashboard/students')}>

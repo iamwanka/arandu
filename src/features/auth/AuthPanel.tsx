@@ -2,13 +2,11 @@ import { useState } from 'react';
 
 import Box from '@cloudscape-design/components/box';
 import Button from '@cloudscape-design/components/button';
-import Container from '@cloudscape-design/components/container';
 import FormField from '@cloudscape-design/components/form-field';
-import Header from '@cloudscape-design/components/header';
 import Input from '@cloudscape-design/components/input';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 
-import { FeedbackAlert } from '../../components/ui';
+import { FeedbackAlert, SectionCard } from '../../components/ui';
 import { useAuthContext } from '../../context/authContextBase';
 import { useAsyncAction } from '../../hooks/useAsyncAction';
 import { getRoleLabel } from '../../lib/roles';
@@ -83,7 +81,7 @@ export default function AuthPanel() {
 
     if (session) {
         return (
-            <Container header={<Header variant="h2">Sesión activa</Header>}>
+            <SectionCard title="Sesión activa">
                 <SpaceBetween size="m">
                     <FeedbackAlert success={`Sesión activa para ${session.user.email}`} error={signOutAction.error} />
                     <Box>
@@ -93,12 +91,43 @@ export default function AuthPanel() {
                         Cerrar sesión
                     </Button>
                 </SpaceBetween>
-            </Container>
+            </SectionCard>
         );
     }
 
     return (
-        <Container header={<Header variant="h2">{mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}</Header>}>
+        <>
+            <div className="login-tabs" data-mode={mode}>
+                <div className="login-tabs-thumb" />
+                <button
+                    type="button"
+                    className={mode === 'login' ? 'active' : ''}
+                    onClick={() => {
+                        if (mode !== 'login') switchMode();
+                    }}
+                >
+                    Iniciar sesión
+                </button>
+                <button
+                    type="button"
+                    className={mode === 'signup' ? 'active' : ''}
+                    onClick={() => {
+                        if (mode !== 'signup') switchMode();
+                    }}
+                >
+                    Crear cuenta
+                </button>
+            </div>
+
+            <div className="login-form-head">
+                <h2>{mode === 'login' ? 'Bienvenido de vuelta' : 'Crea tu cuenta'}</h2>
+                <p>
+                    {mode === 'login'
+                        ? 'Entra con tu cuenta para ver tu panel según tu rol.'
+                        : 'Tu rol se asigna después desde Usuarios y roles.'}
+                </p>
+            </div>
+
             <form
                 onSubmit={(event) => {
                     event.preventDefault();
@@ -148,16 +177,12 @@ export default function AuthPanel() {
                         </FormField>
                     ) : null}
 
-                    <div className="auth-actions">
-                        <Button formAction="submit" variant="primary" loading={submit.pending}>
-                            {mode === 'login' ? 'Entrar' : 'Registrar'}
-                        </Button>
-                        <Button formAction="none" variant="link" onClick={switchMode} disabled={submit.pending}>
-                            {mode === 'login' ? 'Crear cuenta' : 'Volver al inicio de sesión'}
-                        </Button>
-                    </div>
+                    <button type="submit" className={`login-submit${submit.pending ? ' loading' : ''}`} disabled={submit.pending}>
+                        <span className="login-submit-spinner" />
+                        <span>{mode === 'login' ? 'Entrar' : 'Registrar'}</span>
+                    </button>
                 </SpaceBetween>
             </form>
-        </Container>
+        </>
     );
 }
